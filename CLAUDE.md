@@ -120,13 +120,44 @@ Example W2Y (Tryptophan → Tyrosine):
   - `lambda_1_wo_water_and_ions` - Protein only (λ=1)
 - Preserves all existing groups when appending
 
-### ff_detector.py - Force Field Detection
+### ff_detector.py - Force Field Detection (Multi-Strategy)
+
+**Three-tier detection strategy:**
+
+1. **Primary Method: #include Directive Parsing**
+   - Reads `#include` statements from topology file
+   - Extracts FF name from paths (e.g., `#include "amber99sb-star-ildn-mut.ff/forcefield.itp"`)
+   - Handles both absolute and relative paths with `../` notation
+   - Direct match: fastest and most reliable
+
+2. **Fallback 1: Similar Name Matching**
+   - If exact FF not found, tries stripping common suffixes
+   - Examples:
+     - `amber99sb-star-ildn-mut-charged` → tries `amber99sb-star-ildn-mut`
+     - `amber99sb-star-ildn-mut-dna` → tries `amber99sb-star-ildn-mut`
+   - Handles cases where topology specifies variant that doesn't exist in `./mutff`
+
+3. **Fallback 2: Atom Type Inference**
+   - Extracts atom types from `[ atoms ]` section in topology
+   - Parses `atomtypes.atp` from each available FF
+   - Calculates overlap: must have >50% atom types in common
+   - Used when topology has no `#include` directives
 
 **Dual Input Mode Support:**
 - Can accept `ff_dir` as parent directory (containing .ff subdirectories)
 - Can also accept `ff_dir` as a .ff directory itself
 - Handles both: `./mutff` and `./mutff/amber99sb-star-ildn-mut.ff`
-- Properly extracts FF name from relative paths with `../` notation
+
+**Return Dictionary:**
+```python
+{
+    'name': str,                    # Force field name (or 'unknown')
+    'path': str,                    # Full path to FF directory
+    'mutres_path': str or None,     # Path to mutres.mtp if exists
+    'detection_method': str,        # How FF was detected
+    'available_ff': list            # FFs available in ff_dir
+}
+```
 
 ### mutres_parser.py - Mutation Definition Parsing
 

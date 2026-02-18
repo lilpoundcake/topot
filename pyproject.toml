@@ -25,6 +25,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 packages = [{include = "topot", from = "src"}]
+include = [
+    { path = "src/topot/data", format = ["sdist", "wheel"] }
+]
 
 [tool.poetry.scripts]
 topot = "topot.cli:main"

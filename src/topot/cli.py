@@ -17,6 +17,9 @@ import sys
 import os
 from pathlib import Path
 
+# Bundled force field data shipped with the package
+_BUNDLED_FF_DIR = Path(__file__).parent / 'data' / 'mutff'
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -36,10 +39,10 @@ Examples:
                         help='Input topology file')
     parser.add_argument('-n', '--ndx', required=False, dest='ndx_file', default=None,
                         help='Input index file (optional; if not provided, creates new file)')
-    parser.add_argument('-o', '--output', required=True, dest='output_dir',
-                        help='Output directory')
-    parser.add_argument('--ff-dir', dest='ff_dir', default='./mutff',
-                        help='Force field directory (default: ./mutff)')
+    parser.add_argument('-o', '--output', required=False, default=None, dest='output_dir',
+                        help='Output directory (default: <gro_stem>_topot in current directory)')
+    parser.add_argument('--ff-dir', dest='ff_dir', default=str(_BUNDLED_FF_DIR),
+                        help='Force field directory (default: bundled mutff)')
     parser.add_argument('--version', action='version', version='topot 0.1.0')
 
     args = parser.parse_args()
@@ -49,7 +52,14 @@ Examples:
     top_file = Path(args.top_file).resolve()
     ndx_file = Path(args.ndx_file).resolve() if args.ndx_file else None
     ff_dir = Path(args.ff_dir).resolve()
-    output_dir = Path(args.output_dir)
+
+    # Determine output directory (use default if not provided)
+    if args.output_dir is None:
+        # Use GRO file stem + _topot suffix in current working directory
+        gro_stem = gro_file.stem  # e.g., "md_mut" from "md_mut.gro"
+        output_dir = Path.cwd() / f"{gro_stem}_topot"
+    else:
+        output_dir = Path(args.output_dir)
 
     # Step 1: Validate input files
     print("Step 1: Validating input files...")
@@ -68,14 +78,23 @@ Examples:
         print(f"  ✓ Index file: {ndx_file}")
     else:
         print(f"  ℹ Index file: Will create new file (index.ndx)")
+    print(f"  ✓ Output directory: {output_dir}")
 
     # Step 2: Identify force field
     print("\nStep 2: Identifying force field...")
     from .utils.ff_detector import detect_force_field
     ff_info = detect_force_field(top_file, ff_dir)
     print(f"  Force field: {ff_info['name']}")
+    if ff_info.get('detection_method'):
+        print(f"  Detection method: {ff_info['detection_method']}")
     if ff_info.get('mutres_path'):
         print(f"  Mutation file: {ff_info['mutres_path']}")
+    elif ff_info['name'] == 'unknown':
+        if ff_info.get('available_ff'):
+            print(f"  Available FF in {ff_dir}: {', '.join(ff_info['available_ff'][:5])}")
+            if len(ff_info['available_ff']) > 5:
+                print(f"    ... and {len(ff_info['available_ff']) - 5} more")
+        print(f"  ⚠ Could not detect force field. Try explicit --ff-dir or check topology #include directives")
 
     # Step 3: Parse topology and identify atoms
     print("\nStep 3: Parsing topology...")
@@ -133,8 +152,7 @@ Examples:
                 print("\n  Cancelled by user")
                 sys.exit(0)
             elif choice == 's':
-                # Create a new subfolder with timestamp/number
-                import time
+                # Create a new subfolder with auto-incrementing number
                 counter = 1
                 while True:
                     new_dir = output_dir.parent / f"{output_dir.name}_{counter}"
