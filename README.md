@@ -213,13 +213,16 @@ grep "DUM_" /path/to/newtop.top  # Should find dummy atoms
 
 **Runtime:**
 - Python 3.8+
-- No external packages (pure Python stdlib)
+- numpy >= 1.19
+- biopython >= 1.81
 
 **Development:**
 - pytest (testing)
-- black (formatting)
-- mypy (type checking)
+- pytest-cov (coverage)
+- black (code formatting)
 - flake8 (linting)
+- mypy (type checking)
+- isort (import sorting)
 
 ## Documentation
 

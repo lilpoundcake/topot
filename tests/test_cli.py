@@ -23,7 +23,12 @@ def test_cli_with_h_trp33tyr_data():
         gro_file = test_data_dir / "md.gro"
 
     assert gro_file.exists(), f"GRO file not found: {gro_file}"
-    assert (test_data_dir / "newtop.top").exists(), "Topology file not found"
+
+    # Topology file can be named topol.top or newtop.top
+    top_file = test_data_dir / "newtop.top"
+    if not top_file.exists():
+        top_file = test_data_dir / "topol.top"
+    assert top_file.exists(), "Topology file not found (newtop.top or topol.top)"
     assert (test_data_dir / "index.ndx").exists(), "Index file not found"
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -33,7 +38,7 @@ def test_cli_with_h_trp33tyr_data():
         cmd = [
             "topot",
             "-g", str(gro_file),
-            "-p", str(test_data_dir / "newtop.top"),
+            "-p", str(top_file),
             "-n", str(test_data_dir / "index.ndx"),
             "-o", str(output_dir),
         ]
