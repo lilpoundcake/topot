@@ -1,0 +1,5 @@
+# TOPOT - GROMACS Dual Topology Extractor
+# Runtime dependencies
+
+numpy>=1.19
+biopython>=1.81
