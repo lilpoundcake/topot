@@ -52,8 +52,8 @@ topot -g <GRO_FILE> -p <TOPOLOGY_FILE> -n <INDEX_FILE> -o <OUTPUT_DIR> [--ff-dir
 | GRO file | `-g` | `--gro` | Input coordinate file (.gro format) | Yes |
 | Topology | `-p` | `--top` | Input topology file (.top format) | Yes |
 | Index | `-n` | `--ndx` | Input index file (.ndx format); if provided, appends new groups; if omitted, creates new file | No |
-| Output dir | `-o` | `--output` | Output directory for results | Yes |
-| FF directory | | `--ff-dir` | Force field directory (default: ./mutff) | No |
+| Output dir | `-o` | `--output` | Output directory (default: `<gro_stem>_topot`) | No |
+| FF directory | | `--ff-dir` | Force field directory (default: bundled mutff) | No |
 | Version | | `--version` | Show version and exit | No |
 | Help | `-h` | `--help` | Show help message | No |
 
@@ -75,17 +75,23 @@ topot -g md_mut.gro -p newtop.top -o ./results/
 topot -g md_mut.gro -p newtop.top -n index.ndx -o ./results/ --ff-dir /path/to/mutff
 ```
 
-**Test case (H_TRP33TYR mutation):**
+**Test case (H_TRP33TYR single mutation):**
 ```bash
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results --ff-dir ../../mutff
+topot -g md_mut.gro -p topol.top -n index.ndx -o results
+```
+
+**Test case (L_ASN57HID-H_TYR104GLN dual mutation across chains):**
+```bash
+cd tests/L_ASN57HID-H_TYR104GLN
+topot -g md.gro -p topol.top -o results
 ```
 
 **Test case without existing index:**
 ```bash
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p newtop.top -o results --ff-dir ../../mutff
-# Creates new index.ndx with lambda_0 and lambda_1 groups
+topot -g md_mut.gro -p topol.top -o results
+# Creates new index.ndx with lambda_0, lambda_1, and protein-only groups
 ```
 
 ## Output Directory Safety
@@ -163,9 +169,11 @@ The tool generates up to 7 files in the output directory:
 
 **index.ndx** (Updated)
 - Preserves all existing groups from input
-- Adds two new groups:
+- Adds four new groups:
   - `[ lambda_0 ]` - All atoms in λ=0 state
   - `[ lambda_1 ]` - All atoms in λ=1 state
+  - `[ lambda_0_wo_water_and_ions ]` - Protein only at λ=0
+  - `[ lambda_1_wo_water_and_ions ]` - Protein only at λ=1
 - Use with: GROMACS analysis tools (gmx energy, gmx trajectory, etc.)
 
 ## How It Works

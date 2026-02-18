@@ -33,8 +33,8 @@ topot/
 │       └── processor.py       # Main processing: filtering and output generation
 ├── tests/                     # Test data and cases
 │   ├── H_TRP33TYR/           # W2Y mutation (84K atoms, 3 chains)
-│   ├── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation test
-│   └── test_cli.py           # Basic CLI tests
+│   ├── L_ASN57HID-H_TYR104GLN/  # N2H + Y2Q dual mutation across chains (34K atoms)
+│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation test
 ├── pyproject.toml            # Poetry project configuration (includes data files)
 ├── setup.py                  # setuptools configuration (includes data files)
 ├── requirements.txt          # Runtime dependencies
@@ -74,6 +74,15 @@ topot/
     'massB': float or None,    # State B mass
 }
 ```
+
+### Topology Parsing - Multi-Chain .itp Handling
+
+Each `.itp` file may restart atom numbering from 1. `parse_topology()` applies an offset
+to atom indices when combining atoms from multiple files, ensuring no chain's data is lost.
+
+**Critical:** Without the offset, `atoms.update(parsed)` overwrites previous chains' atoms,
+causing all dual topology info (type/typeB) to be lost for those chains. This was fixed to
+handle arbitrary numbers of chains with independent atom numbering.
 
 ### Filtering Rules
 
@@ -366,6 +375,7 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 4. **Chain Separation:** Uses residue number jumps or topology chain info for detection
 5. **Type Vs. TypeB:** In topology, "type" is state A, "typeB" is state B. This is fundamental to dual topology
 6. **Element Inference:** PDB element symbols derived from first uppercase letter of atom name (after renaming)
+7. **Multi-Chain .itp Files:** Each `.itp` restarts atom numbering from 1; `parse_topology()` offsets indices to avoid collisions
 
 ## Known Limitations
 
@@ -390,8 +400,9 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 - **CLI Entry:** `src/topot/cli.py` (default FF dir resolved here)
 - **Main Processing:** `src/topot/utils/processor.py`
 - **Force Field Detection:** `src/topot/utils/ff_detector.py`
-- **Test Case 1:** `tests/H_TRP33TYR/` (W2Y single mutation)
-- **Test Case 2:** `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/` (Triple mutation)
+- **Test Case 1:** `tests/H_TRP33TYR/` (W2Y single mutation, 84K atoms)
+- **Test Case 2:** `tests/L_ASN57HID-H_TYR104GLN/` (N2H+Y2Q dual mutation across chains, 34K atoms)
+- **Test Case 3:** `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/` (Triple mutation)
 - **Bundled Force Fields:** `src/topot/data/mutff/` (650+ mutations, included in wheel)
 
 ### Key Classes/Functions
@@ -412,6 +423,7 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 - "Empty output" → Verify topology has DUM_ atoms for filtering
 - "Index group mismatch" → Ensure input .ndx file is valid GROMACS format
 - "Mutation file not found" → Check mutres.mtp exists in detected FF (bundled or --ff-dir)
+- "Atom X defined twice in residue" → Topology parsing lost chain data; check .itp atom index offsets
 
 ## References
 
@@ -425,6 +437,7 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 
 ✅ Core functionality complete
 ✅ Single and multi-mutation support
+✅ Multi-chain topology parsing (atom index offset for per-chain .itp files)
 ✅ PDB output with proper coordinates and element symbols
 ✅ Protein-only index groups (wo_water_and_ions)
 ✅ Output directory safety (user-controlled overwrite/subfolder/cancel)
@@ -433,6 +446,6 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 ✅ Three-tier force field detection (#include → similar names → atom type inference)
 ✅ Bundled force field data (6 FF variants, 650+ mutations) in wheel
 ✅ Optional `-o` output directory (defaults to `<gro_stem>_topot`)
-✅ All tests passing
+✅ All test cases passing (3 test cases: single, dual cross-chain, triple mutation)
 ✅ Wheel distribution created (2.0 MB with bundled data)
 ✅ Full documentation (README.md, USAGE.md, CLAUDE.md)

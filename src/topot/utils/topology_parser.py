@@ -8,7 +8,10 @@ def parse_topology(top_file):
     """
     Parse topology file and extract atoms with dual topology info.
 
-    Returns dict mapping atom_index -> {
+    Each .itp file may restart atom numbering from 1, so we apply an offset
+    to ensure unique keys when combining atoms from multiple files.
+
+    Returns dict mapping global_atom_index -> {
         'index': int,
         'type': str,           # State A type
         'typeB': str | None,   # State B type
@@ -37,11 +40,21 @@ def parse_topology(top_file):
             itp_files.append(inc_path)
 
     # Parse each file to find [ atoms ] sections
+    # Use offset to handle .itp files that restart atom numbering from 1
+    offset = 0
     for itp_file in itp_files:
         atoms_section = extract_section(itp_file, '[ atoms ]')
         if atoms_section:
             parsed = parse_atoms_section(atoms_section)
-            atoms.update(parsed)
+            if parsed:
+                # Apply offset to atom indices to avoid key collisions
+                for orig_idx, atom_data in parsed.items():
+                    new_idx = orig_idx + offset
+                    atom_data['index'] = new_idx
+                    atoms[new_idx] = atom_data
+                # Advance offset past the highest atom index in this file
+                max_idx = max(parsed.keys())
+                offset += max_idx
 
     return atoms
 

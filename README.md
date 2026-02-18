@@ -258,8 +258,9 @@ topot/
 │       ├── residue_classifier.py
 │       └── processor.py
 ├── tests/                  # Test data and cases
-│   ├── H_TRP33TYR/         # W2Y mutation example
-│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation example
+│   ├── H_TRP33TYR/         # W2Y single mutation (84K atoms, 3 chains)
+│   ├── L_ASN57HID-H_TYR104GLN/  # Dual mutation across chains (34K atoms)
+│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation
 ├── pyproject.toml          # Poetry configuration (includes data files)
 ├── setup.py                # setuptools configuration
 ├── README.md               # This file
@@ -267,20 +268,27 @@ topot/
 └── CLAUDE.md               # Technical implementation guide
 ```
 
-## Test Case
+## Test Cases
 
-Included test case: **H_TRP33TYR** (Chain H, position 33, Tryptophan → Tyrosine)
+### H_TRP33TYR (Single mutation, 84K atoms)
+Chain H, Tryptophan → Tyrosine at position 337
 
 ```bash
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results
+topot -g md_mut.gro -p topol.top -o results
 ```
 
-Expected results:
-- λ=0: 6,487 protein atoms
-- λ=1: 6,484 protein atoms
-- All atoms λ=0: 83,938 atoms (with solvent)
-- All atoms λ=1: 83,935 atoms (with solvent)
+Expected: λ=0: 6,487 protein atoms, λ=1: 6,484 protein atoms
+
+### L_ASN57HID-H_TYR104GLN (Dual mutation across chains, 34K atoms)
+Chain L, Asparagine → Histidine at position 57; Chain H, Tyrosine → Glutamine at position 215
+
+```bash
+cd tests/L_ASN57HID-H_TYR104GLN
+topot -g md.gro -p topol.top -o results
+```
+
+Expected: λ=0: 3,802 protein atoms, λ=1: 3,801 protein atoms
 
 ## References
 
@@ -307,4 +315,4 @@ Contributions welcome! Please:
 For issues or questions:
 1. Check [USAGE.md](USAGE.md) for common problems
 2. Review [CLAUDE.md](CLAUDE.md) for technical details
-3. Check test cases in `tests/H_TRP33TYR/` or `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/`
+3. Check test cases in `tests/H_TRP33TYR/`, `tests/L_ASN57HID-H_TYR104GLN/`, or `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/`
