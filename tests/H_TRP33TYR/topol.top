@@ -1,45 +1,27 @@
-;
-;	File 'topol.top' was generated
-;	By user: lilpoundcake (501)
-;	On host: MacBook-Pro-Stanislav.local
-;	At date: Tue Feb 17 20:57:26 2026
-;
-;	This is a standalone topology file
-;
-;	Created by:
-;	                    :-) GROMACS - gmx pdb2gmx, 2026.0 (-:
-;	
-;	Executable:   /usr/local/gromacs/bin/gmx
-;	Data prefix:  /usr/local/gromacs
-;
 
-; Include forcefield parameters
-#include "./amber99sb-star-ildn-mut.ff/forcefield.itp"
+#include "amber99sb-star-ildn-mut.ff/forcefield.itp"
 
-; Include chain topologies
-#include "topol_Protein_chain_B.itp"
-#include "topol_Protein_chain_L.itp"
-#include "topol_Protein_chain_H.itp"
-
-; Include water topology
+#include "pmx_topol_Protein_chain_B.itp"
+#include "pmx_topol_Protein_chain_L.itp"
+#include "pmx_topol_Protein_chain_H.itp"
 #include "./amber99sb-star-ildn-mut.ff/tip3p.itp"
 
-#ifdef POSRES_WATER
-; Position restraint for each water oxygen
-[ position_restraints ]
-;  i funct       fcx        fcy        fcz
-   1    1       1000       1000       1000
-#endif
 
-; Include topology for ions
+
+
+#ifdef POSRES_WATER
+[ position_restraints ]
+1    1       1000       1000       1000
+#endif
 #include "./amber99sb-star-ildn-mut.ff/ions.itp"
 
 [ system ]
-; Name
-PMX MODEL
+PMX MODEL in water
 
 [ molecules ]
-; Compound        #mols
-Protein_chain_B     1
-Protein_chain_L     1
-Protein_chain_H     1
+Protein_chain_B 1
+Protein_chain_L 1
+Protein_chain_H 1
+SOL         25765
+NA               78
+CL               78
