@@ -12,8 +12,8 @@ micromamba activate topot
 cd /path/to/topot
 poetry install
 
-# Run
-topot -g md_mut.gro -p newtop.top -n index.ndx -o ./results/ --ff-dir ./mutff
+# Run (mutff is bundled, no --ff-dir needed)
+topot -g md_mut.gro -p newtop.top -n index.ndx -o ./results/
 ```
 
 ## What It Does
@@ -33,13 +33,14 @@ Input: Tryptophan (W) mutating to Tyrosine (Y) at position 337
 
 ## Key Features
 
+✅ **Bundled force field data** (6 FF variants with 650+ mutations)
 ✅ **Automatic force field detection** (AMBER, CHARMM, GROMOS)
 ✅ **Works with ANY mutation type** (general-purpose solution)
 ✅ **Intelligent atom filtering** based on dual topology states
 ✅ **Preserves atom connectivity** (no reordering)
 ✅ **Multiple output formats** (GRO + PDB + NDX)
 ✅ **Sub-2-second processing** for 84K atom systems
-✅ **Zero external dependencies** (pure Python)
+✅ **Zero additional dependencies** (pure Python + numpy/biopython)
 
 ## Installation
 
@@ -70,8 +71,8 @@ topot -g <GRO_FILE> -p <TOPOLOGY_FILE> -n <INDEX_FILE> -o <OUTPUT_DIR> [--ff-dir
 - `-g, --gro FILE` - Input GROMACS coordinate file (required)
 - `-p, --top FILE` - Input topology file (required)
 - `-n, --ndx FILE` - Input index file (optional; if provided, appends to it; if not provided, creates new)
-- `-o, --output DIR` - Output directory (required)
-- `--ff-dir DIR` - Force field directory (default: ./mutff)
+- `-o, --output DIR` - Output directory (optional; default: `<gro_stem>_topot` in current directory)
+- `--ff-dir DIR` - Force field directory (optional; default: bundled mutff with AMBER/CHARMM/GROMOS)
 - `--version` - Show version
 - `-h, --help` - Show help
 
@@ -79,7 +80,11 @@ topot -g <GRO_FILE> -p <TOPOLOGY_FILE> -n <INDEX_FILE> -o <OUTPUT_DIR> [--ff-dir
 ```bash
 # Test case: W2Y mutation in protein
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results --ff-dir ../../mutff
+topot -g md_mut.gro -p newtop.top -n index.ndx -o results
+# (mutff is bundled, no --ff-dir needed)
+
+# Or with explicit force field directory
+topot -g md_mut.gro -p newtop.top -n index.ndx -o results --ff-dir /custom/path/mutff
 ```
 
 ## Output Files
@@ -237,6 +242,15 @@ topot/
 ├── src/topot/              # Main package
 │   ├── __init__.py
 │   ├── cli.py              # CLI entry point
+│   ├── data/mutff/         # Bundled force field data (6 FF + 650+ mutations)
+│   │   ├── amber14sbmut.ff/
+│   │   ├── amber99sb-star-ildn-mut.ff/
+│   │   ├── amber99sb-star-ildn-bsc1-mut.ff/
+│   │   ├── amber99sb-star-ildn-dna-mut.ff/
+│   │   ├── charmm22star-mut.ff/
+│   │   ├── charmm36m-mut.ff/
+│   │   ├── residuetypes.dat
+│   │   └── ... (atomtypes, elements, etc.)
 │   └── utils/              # Core functionality
 │       ├── ff_detector.py
 │       ├── topology_parser.py
@@ -244,11 +258,11 @@ topot/
 │       ├── residue_classifier.py
 │       └── processor.py
 ├── tests/                  # Test data and cases
-│   └── H_TRP33TYR/         # W2Y mutation example
-├── mutff/                  # Force field definitions
-├── pyproject.toml          # Poetry configuration
+│   ├── H_TRP33TYR/         # W2Y mutation example
+│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation example
+├── pyproject.toml          # Poetry configuration (includes data files)
+├── setup.py                # setuptools configuration
 ├── README.md               # This file
-├── USAGE.md                # Usage guide
 ├── USAGE.md                # Comprehensive usage guide
 └── CLAUDE.md               # Technical implementation guide
 ```
@@ -259,7 +273,7 @@ Included test case: **H_TRP33TYR** (Chain H, position 33, Tryptophan → Tyrosin
 
 ```bash
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results --ff-dir ../../mutff
+topot -g md_mut.gro -p newtop.top -n index.ndx -o results
 ```
 
 Expected results:

@@ -15,6 +15,15 @@ topot/
 ├── src/topot/                  # Main package
 │   ├── __init__.py            # Package version and metadata
 │   ├── cli.py                 # CLI entry point (6-step pipeline)
+│   ├── data/                  # Bundled data files (included in wheel)
+│   │   └── mutff/             # Force field definitions with 650+ mutations
+│   │       ├── amber14sbmut.ff/
+│   │       ├── amber99sb-star-ildn-mut.ff/
+│   │       ├── amber99sb-star-ildn-bsc1-mut.ff/
+│   │       ├── amber99sb-star-ildn-dna-mut.ff/
+│   │       ├── charmm22star-mut.ff/
+│   │       ├── charmm36m-mut.ff/
+│   │       └── residuetypes.dat, atomtypes.atp, etc.
 │   └── utils/                 # Core functionality modules
 │       ├── ff_detector.py     # Force field detection from topology #include directives
 │       ├── topology_parser.py # GROMACS topology parsing (atoms, types, dual states)
@@ -26,9 +35,8 @@ topot/
 │   ├── H_TRP33TYR/           # W2Y mutation (84K atoms, 3 chains)
 │   ├── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation test
 │   └── test_cli.py           # Basic CLI tests
-├── mutff/                    # Force field definitions with 650+ mutations
-├── pyproject.toml            # Poetry project configuration
-├── setup.py                  # setuptools configuration
+├── pyproject.toml            # Poetry project configuration (includes data files)
+├── setup.py                  # setuptools configuration (includes data files)
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Development dependencies
 ├── README.md                 # User documentation (overview, quick start)
@@ -158,6 +166,28 @@ Example W2Y (Tryptophan → Tyrosine):
     'available_ff': list            # FFs available in ff_dir
 }
 ```
+
+### Bundled Force Field Data
+
+**Distribution Strategy:**
+- Force field data (6 variants, 650+ mutations) is bundled inside the Python wheel
+- Located at `src/topot/data/mutff/` during development
+- After `pip install topot`, accessible via `Path(__file__).parent / 'data' / 'mutff'`
+- Makes tool self-contained: no need for `--ff-dir` after installation
+
+**Default Resolution (cli.py):**
+```python
+_BUNDLED_FF_DIR = Path(__file__).parent / 'data' / 'mutff'
+parser.add_argument('--ff-dir', dest='ff_dir', default=str(_BUNDLED_FF_DIR), ...)
+```
+- `Path(__file__)` always points to installed package location
+- Works correctly after `pip install` (even if git repo is deleted)
+- `--ff-dir` override still works for custom force fields
+
+**Wheel Configuration:**
+- `pyproject.toml`: adds `include` directive for Poetry
+- `setup.py`: adds `package_data` and `include_package_data` for setuptools
+- Wheel size: 2.0 MB (compressed), includes all 217 FF data files
 
 ### mutres_parser.py - Mutation Definition Parsing
 
@@ -291,13 +321,14 @@ Then call from `process_dual_topology()`.
 ```bash
 cd tests/H_TRP33TYR
 
-# Run tool with existing index file
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results \
-      --ff-dir ../../mutff
+# Run tool with existing index file (mutff is bundled, no --ff-dir needed)
+topot -g md_mut.gro -p newtop.top -n index.ndx -o results
 
 # Or create new index file
-topot -g md_mut.gro -p newtop.top -o results \
-      --ff-dir ../../mutff
+topot -g md_mut.gro -p newtop.top -o results
+
+# Or with custom FF directory override
+topot -g md_mut.gro -p newtop.top -o results --ff-dir /custom/path/mutff
 
 # Verify outputs
 ls results/md_lambda*.{gro,pdb}
@@ -356,12 +387,12 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 
 ### File Paths to Know
 
-- **CLI Entry:** `src/topot/cli.py`
+- **CLI Entry:** `src/topot/cli.py` (default FF dir resolved here)
 - **Main Processing:** `src/topot/utils/processor.py`
 - **Force Field Detection:** `src/topot/utils/ff_detector.py`
 - **Test Case 1:** `tests/H_TRP33TYR/` (W2Y single mutation)
 - **Test Case 2:** `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/` (Triple mutation)
-- **Force Fields:** `mutff/` (650+ mutations across AMBER, CHARMM, GROMOS variants)
+- **Bundled Force Fields:** `src/topot/data/mutff/` (650+ mutations, included in wheel)
 
 ### Key Classes/Functions
 
@@ -376,10 +407,11 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 
 ### Error Messages
 
-- "Force field not detected" → Pass explicit `--ff-dir`
-- "0 atoms in PDB" → Check residuetypes.dat exists in FF directory
+- "Force field not detected" → Check topology #include directives, or pass explicit `--ff-dir`
+- "0 atoms in PDB" → Verify residuetypes.dat exists (bundled or custom --ff-dir)
 - "Empty output" → Verify topology has DUM_ atoms for filtering
 - "Index group mismatch" → Ensure input .ndx file is valid GROMACS format
+- "Mutation file not found" → Check mutres.mtp exists in detected FF (bundled or --ff-dir)
 
 ## References
 
@@ -398,6 +430,9 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 ✅ Output directory safety (user-controlled overwrite/subfolder/cancel)
 ✅ Optional index file handling (create new or append)
 ✅ Smart atom renaming with D-prefix fallback
+✅ Three-tier force field detection (#include → similar names → atom type inference)
+✅ Bundled force field data (6 FF variants, 650+ mutations) in wheel
+✅ Optional `-o` output directory (defaults to `<gro_stem>_topot`)
 ✅ All tests passing
-✅ Wheel distribution created
+✅ Wheel distribution created (2.0 MB with bundled data)
 ✅ Full documentation (README.md, USAGE.md, CLAUDE.md)
