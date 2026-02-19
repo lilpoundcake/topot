@@ -35,13 +35,19 @@ Input: Tryptophan (W) mutating to Tyrosine (Y) at position 337
 ## Key Features
 
 ✅ **Bundled force field data** (6 FF variants with 650+ mutations)
+
 ✅ **Automatic force field detection** (AMBER, CHARMM, GROMOS)
+
 ✅ **Works with ANY mutation type** (general-purpose solution)
+
 ✅ **Intelligent atom filtering** based on dual topology states
+
 ✅ **Preserves atom connectivity** (no reordering)
-✅ **Multiple output formats** (GRO + PDB + NDX)
+
+✅ **Multiple output formats** (GRO + PDB)
+
 ✅ **Sub-2-second processing** for 84K atom systems
-✅ **Zero additional dependencies** (pure Python + numpy/biopython)
+
 
 ## Installation
 
