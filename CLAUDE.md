@@ -33,8 +33,8 @@ topot/
 │       └── processor.py       # Main processing: filtering and output generation
 ├── tests/                     # Test data and cases
 │   ├── H_TRP33TYR/           # W2Y mutation (84K atoms, 3 chains)
-│   ├── L_ASN57HID-H_TYR104GLN/  # N2H + Y2Q dual mutation across chains (34K atoms)
-│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation test
+│   ├── I_MET30LYS-I_LEU29ARG/  # M2K + L2R dual mutation (33K atoms, 2 chains)
+│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation (121K atoms, 2 chains)
 ├── pyproject.toml            # Poetry project configuration (includes data files)
 ├── setup.py                  # setuptools configuration (includes data files)
 ├── requirements.txt          # Runtime dependencies
@@ -83,6 +83,21 @@ to atom indices when combining atoms from multiple files, ensuring no chain's da
 **Critical:** Without the offset, `atoms.update(parsed)` overwrites previous chains' atoms,
 causing all dual topology info (type/typeB) to be lost for those chains. This was fixed to
 handle arbitrary numbers of chains with independent atom numbering.
+
+### Input File Requirements
+
+**The `.top` file must contain a complete `[ molecules ]` section** listing every molecule in the
+system (protein chains, solvent, ions). The order in `[ molecules ]` defines the atom order in
+the coordinate file. TOPOT uses positional matching between topology and GRO atoms — the i-th
+topology atom corresponds to the i-th GRO atom — so the `[ molecules ]` order must match.
+
+**All protein chain `.itp` files referenced by `#include` must be present** in the same directory
+as the `.top` file. TOPOT reads the `[ atoms ]` section from each `.itp` to extract dual topology
+columns (`type`/`typeB`, `charge`/`chargeB`, `mass`/`massB`). Without these files, TOPOT cannot
+identify dummy atoms (`DUM_` prefix) or filter atoms for lambda states. The `.top` file only
+references `.itp` files via `#include` — the actual per-atom dual topology data lives inside
+the `.itp` files. Force field `.itp` files (`forcefield.itp`, `tip3p.itp`, `ions.itp`) do not
+need to be present locally — they contain force field parameters, not per-atom topology data.
 
 ### Filtering Rules
 
@@ -331,13 +346,13 @@ Then call from `process_dual_topology()`.
 cd tests/H_TRP33TYR
 
 # Run tool with existing index file (mutff is bundled, no --ff-dir needed)
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results
+topot -g md_mut.gro -p topol.top -n index.ndx -o results
 
 # Or create new index file
-topot -g md_mut.gro -p newtop.top -o results
+topot -g md_mut.gro -p topol.top -o results
 
 # Or with custom FF directory override
-topot -g md_mut.gro -p newtop.top -o results --ff-dir /custom/path/mutff
+topot -g md_mut.gro -p topol.top -o results --ff-dir /custom/path/mutff
 
 # Verify outputs
 ls results/md_lambda*.{gro,pdb}
@@ -400,9 +415,9 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 - **CLI Entry:** `src/topot/cli.py` (default FF dir resolved here)
 - **Main Processing:** `src/topot/utils/processor.py`
 - **Force Field Detection:** `src/topot/utils/ff_detector.py`
-- **Test Case 1:** `tests/H_TRP33TYR/` (W2Y single mutation, 84K atoms)
-- **Test Case 2:** `tests/L_ASN57HID-H_TYR104GLN/` (N2H+Y2Q dual mutation across chains, 34K atoms)
-- **Test Case 3:** `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/` (Triple mutation)
+- **Test Case 1:** `tests/H_TRP33TYR/` (W2Y single mutation, 84K atoms, 3 chains)
+- **Test Case 2:** `tests/I_MET30LYS-I_LEU29ARG/` (M2K+L2R dual mutation, 33K atoms, 2 chains)
+- **Test Case 3:** `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/` (Triple mutation, 121K atoms, 2 chains)
 - **Bundled Force Fields:** `src/topot/data/mutff/` (650+ mutations, included in wheel)
 
 ### Key Classes/Functions
@@ -446,6 +461,7 @@ Expected: λ_0 = 6487 atoms, λ_1 = 6484 atoms (3 atom difference for W→Y)
 ✅ Three-tier force field detection (#include → similar names → atom type inference)
 ✅ Bundled force field data (6 FF variants, 650+ mutations) in wheel
 ✅ Optional `-o` output directory (defaults to `<gro_stem>_topot`)
-✅ All test cases passing (3 test cases: single, dual cross-chain, triple mutation)
+✅ Positional atom matching (handles overlapping resnr across chains)
+✅ All test cases passing (3 test cases: single, dual same-chain, triple mutation)
 ✅ Wheel distribution created (2.0 MB with bundled data)
 ✅ Full documentation (README.md, USAGE.md, CLAUDE.md)

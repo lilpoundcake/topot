@@ -41,7 +41,9 @@ def parse_topology(top_file):
 
     # Parse each file to find [ atoms ] sections
     # Use offset to handle .itp files that restart atom numbering from 1
+    # Track chain_idx so atoms can be associated with their source chain
     offset = 0
+    chain_idx = 0
     for itp_file in itp_files:
         atoms_section = extract_section(itp_file, '[ atoms ]')
         if atoms_section:
@@ -51,10 +53,12 @@ def parse_topology(top_file):
                 for orig_idx, atom_data in parsed.items():
                     new_idx = orig_idx + offset
                     atom_data['index'] = new_idx
+                    atom_data['chain_idx'] = chain_idx
                     atoms[new_idx] = atom_data
                 # Advance offset past the highest atom index in this file
                 max_idx = max(parsed.keys())
                 offset += max_idx
+                chain_idx += 1
 
     return atoms
 

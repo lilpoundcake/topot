@@ -9,11 +9,12 @@ A CLI tool for extracting lambda-specific structures from GROMACS dual topology 
 micromamba create -n topot python=3.10 poetry -c conda-forge
 micromamba activate topot
 
-cd /path/to/topot
+git clone https://github.com/lilpoundcake/topot.git
+cd topot
 poetry install
 
 # Run (mutff is bundled, no --ff-dir needed)
-topot -g md_mut.gro -p newtop.top -n index.ndx -o ./results/
+topot -g md_mut.gro -p topol.top -n index.ndx -o ./results/
 ```
 
 ## What It Does
@@ -48,7 +49,9 @@ Input: Tryptophan (W) mutating to Tyrosine (Y) at position 337
 ```bash
 micromamba create -n topot python=3.10 poetry -c conda-forge
 micromamba activate topot
-cd /path/to/topot
+
+git clone https://github.com/lilpoundcake/topot.git
+cd topot
 poetry install
 ```
 
@@ -57,7 +60,9 @@ poetry install
 python3 -m venv topot_env
 source topot_env/bin/activate
 pip install poetry
-cd /path/to/topot
+
+git clone https://github.com/lilpoundcake/topot.git
+cd topot
 poetry install
 ```
 
@@ -80,11 +85,10 @@ topot -g <GRO_FILE> -p <TOPOLOGY_FILE> -n <INDEX_FILE> -o <OUTPUT_DIR> [--ff-dir
 ```bash
 # Test case: W2Y mutation in protein
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results
-# (mutff is bundled, no --ff-dir needed)
+topot -g md_mut.gro -p topol.top -n index.ndx -o results
 
 # Or with explicit force field directory
-topot -g md_mut.gro -p newtop.top -n index.ndx -o results --ff-dir /custom/path/mutff
+topot -g md_mut.gro -p topol.top -n index.ndx -o results --ff-dir /custom/path/mutff
 ```
 
 ## Output Files
@@ -110,6 +114,28 @@ The tool **never automatically deletes files** in the output directory. When fil
 3. **Cancel (c)** - Exit without making any changes
 
 This ensures your existing analysis and notes are always preserved.
+
+## Input Requirements
+
+### Topology File (.top)
+
+The `.top` file **must** contain a complete `[ molecules ]` section listing all molecules in the system (protein chains, solvent, ions). The order in `[ molecules ]` must match the order of atoms in the `.gro` coordinate file — TOPOT uses positional matching between topology and coordinates.
+
+Example `[ molecules ]` section:
+```
+[ molecules ]
+; Compound        #mols
+Protein_chain_B     1
+Protein_chain_L     1
+Protein_chain_H     1
+SOL         25765
+NA               78
+CL               78
+```
+
+### Chain .itp Files
+
+**All protein chain `.itp` files referenced by `#include` in the `.top` file must be present in the same directory as the `.top` file.** TOPOT reads the `[ atoms ]` section from each `.itp` file to extract dual topology information (`type`, `typeB`, `charge`, `chargeB`, `mass`, `massB`). Without these files, TOPOT cannot determine which atoms are dummy atoms (DUM_ prefix) and cannot filter atoms for lambda states. Force field `.itp` files (e.g., `forcefield.itp`, `tip3p.itp`, `ions.itp`) do not need to be present — they contain force field parameters, not per-atom topology data.
 
 ## How It Works
 
@@ -259,8 +285,8 @@ topot/
 │       └── processor.py
 ├── tests/                  # Test data and cases
 │   ├── H_TRP33TYR/         # W2Y single mutation (84K atoms, 3 chains)
-│   ├── L_ASN57HID-H_TYR104GLN/  # Dual mutation across chains (34K atoms)
-│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation
+│   ├── I_MET30LYS-I_LEU29ARG/   # Dual mutation same chain (33K atoms, 2 chains)
+│   └── A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/  # Triple mutation (121K atoms, 2 chains)
 ├── pyproject.toml          # Poetry configuration (includes data files)
 ├── setup.py                # setuptools configuration
 ├── README.md               # This file
@@ -270,35 +296,41 @@ topot/
 
 ## Test Cases
 
-### H_TRP33TYR (Single mutation, 84K atoms)
+### H_TRP33TYR (Single mutation, 84K atoms, 3 chains)
 Chain H, Tryptophan → Tyrosine at position 337
 
 ```bash
 cd tests/H_TRP33TYR
-topot -g md_mut.gro -p topol.top -o results
+topot -g md_mut.gro -p topol.top -n index.ndx -o results
 ```
 
 Expected: λ=0: 6,487 protein atoms, λ=1: 6,484 protein atoms
 
-### L_ASN57HID-H_TYR104GLN (Dual mutation across chains, 34K atoms)
-Chain L, Asparagine → Histidine at position 57; Chain H, Tyrosine → Glutamine at position 215
+### I_MET30LYS-I_LEU29ARG (Dual mutation same chain, 33K atoms, 2 chains)
+Chain I, Methionine → Lysine at position 30; Chain I, Leucine → Arginine at position 29
 
 ```bash
-cd tests/L_ASN57HID-H_TYR104GLN
+cd tests/I_MET30LYS-I_LEU29ARG
 topot -g md.gro -p topol.top -o results
 ```
 
-Expected: λ=0: 3,802 protein atoms, λ=1: 3,801 protein atoms
+Expected: λ=0: 3,966 protein atoms, λ=1: 3,976 protein atoms
+
+### A_ARG155ASH-A_ASP177ASH-A_LYS180ASP (Triple mutation, 121K atoms, 2 chains)
+Chain A, three mutations: ARG→ASH at 155, ASP→ASH at 177, LYS→ASP at 180
+
+```bash
+cd tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP
+topot -g md.gro -p topol.top -o results
+```
+
+Expected: λ=0: 6,282 protein atoms, λ=1: 6,262 protein atoms
 
 ## References
 
 - [GROMACS File Formats](https://manual.gromacs.org/2026.0/reference-manual/topologies/)
 - [PMX Documentation](https://pmx.readthedocs.io/)
 - [Dual Topology FE Calculations](https://pmx.readthedocs.io/)
-
-## License
-
-[Your License Here]
 
 ## Contributing
 
@@ -315,4 +347,4 @@ Contributions welcome! Please:
 For issues or questions:
 1. Check [USAGE.md](USAGE.md) for common problems
 2. Review [CLAUDE.md](CLAUDE.md) for technical details
-3. Check test cases in `tests/H_TRP33TYR/`, `tests/L_ASN57HID-H_TYR104GLN/`, or `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/`
+3. Check test cases in `tests/H_TRP33TYR/`, `tests/I_MET30LYS-I_LEU29ARG/`, or `tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP/`

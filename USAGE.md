@@ -21,8 +21,9 @@ Output: Four separate structure files (GRO and PDB) for lambda=0 and lambda=1 st
 micromamba create -n topot python=3.10 poetry -c conda-forge
 micromamba activate topot
 
-# Install topot
-cd /path/to/topot
+# Clone and install topot
+git clone https://github.com/lilpoundcake/topot.git
+cd topot
 poetry install
 
 # Verify installation
@@ -35,7 +36,9 @@ topot --version
 python3 -m venv topot_env
 source topot_env/bin/activate
 pip install poetry
-cd /path/to/topot
+
+git clone https://github.com/lilpoundcake/topot.git
+cd topot
 poetry install
 ```
 
@@ -61,37 +64,36 @@ topot -g <GRO_FILE> -p <TOPOLOGY_FILE> -n <INDEX_FILE> -o <OUTPUT_DIR> [--ff-dir
 
 **Basic usage (append to existing index):**
 ```bash
-topot -g md_mut.gro -p newtop.top -n index.ndx -o ./results/
+topot -g md_mut.gro -p topol.top -n index.ndx -o ./results/
 ```
 
 **Create new index file (no -n flag):**
 ```bash
-topot -g md_mut.gro -p newtop.top -o ./results/
+topot -g md_mut.gro -p topol.top -o ./results/
 # Creates index.ndx with only lambda_0 and lambda_1 groups
 ```
 
 **With custom force field directory:**
 ```bash
-topot -g md_mut.gro -p newtop.top -n index.ndx -o ./results/ --ff-dir /path/to/mutff
+topot -g md_mut.gro -p topol.top -n index.ndx -o ./results/ --ff-dir /path/to/mutff
 ```
 
-**Test case (H_TRP33TYR single mutation):**
+**Test case (H_TRP33TYR single mutation, 3 chains):**
 ```bash
 cd tests/H_TRP33TYR
 topot -g md_mut.gro -p topol.top -n index.ndx -o results
 ```
 
-**Test case (L_ASN57HID-H_TYR104GLN dual mutation across chains):**
+**Test case (I_MET30LYS-I_LEU29ARG dual mutation, 2 chains):**
 ```bash
-cd tests/L_ASN57HID-H_TYR104GLN
+cd tests/I_MET30LYS-I_LEU29ARG
 topot -g md.gro -p topol.top -o results
 ```
 
-**Test case without existing index:**
+**Test case (A_ARG155ASH-A_ASP177ASH-A_LYS180ASP triple mutation, 2 chains):**
 ```bash
-cd tests/H_TRP33TYR
-topot -g md_mut.gro -p topol.top -o results
-# Creates new index.ndx with lambda_0, lambda_1, and protein-only groups
+cd tests/A_ARG155ASH-A_ASP177ASH-A_LYS180ASP
+topot -g md.gro -p topol.top -o results
 ```
 
 ## Output Directory Safety
@@ -176,6 +178,31 @@ The tool generates up to 7 files in the output directory:
   - `[ lambda_1_wo_water_and_ions ]` - Protein only at λ=1
 - Use with: GROMACS analysis tools (gmx energy, gmx trajectory, etc.)
 
+## Input Requirements
+
+### Topology File (.top)
+
+The `.top` file **must** contain a complete `[ molecules ]` section listing every molecule in the system — all protein chains, solvent, and ions. The order in `[ molecules ]` must match the atom order in the `.gro` coordinate file, because TOPOT uses positional matching between topology and coordinates.
+
+Example:
+```
+[ molecules ]
+; Compound        #mols
+Protein_chain_B     1
+Protein_chain_I     1
+SOL         9642
+ACL               2
+CL               5
+```
+
+### Chain .itp Files
+
+**All protein chain `.itp` files referenced by `#include` in the `.top` file must be present in the same directory as the `.top` file.**
+
+TOPOT reads the `[ atoms ]` section from each `.itp` file to extract dual topology information — the `type`/`typeB`, `charge`/`chargeB`, and `mass`/`massB` columns that define state A and state B for each atom. Without these files, TOPOT cannot determine which atoms are dummy atoms (`DUM_` prefix) and cannot filter atoms for lambda states. The `.top` file itself only references the `.itp` files via `#include` directives; the actual per-atom topology data lives inside the `.itp` files.
+
+Force field `.itp` files (`forcefield.itp`, `tip3p.itp`, `ions.itp`) do **not** need to be present locally — they contain force field parameters, not per-atom dual topology data.
+
 ## How It Works
 
 The tool implements a 6-step pipeline:
@@ -198,7 +225,7 @@ The tool implements a 6-step pipeline:
 
 ### Step 4: Parse GRO Coordinates
 - Reads atomic positions and velocities
-- Matches atoms to topology by (residue_number, atom_name)
+- Matches atoms to topology by position (i-th topology atom = i-th GRO atom)
 - Includes solvent/ion atoms not in topology
 
 ### Step 5: Identify Mutations

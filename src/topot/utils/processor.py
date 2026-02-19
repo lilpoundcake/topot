@@ -109,39 +109,44 @@ def merge_atoms(topology_atoms, gro_atoms):
     """
     Merge topology information with GRO coordinates.
 
-    Returns list of atoms with combined information.
+    Uses positional matching: the i-th topology atom (sorted by offset index)
+    corresponds to the i-th GRO atom. This is guaranteed by GROMACS which
+    requires coordinate and topology atom ordering to be identical.
+
+    Positional matching is essential when multiple chains share the same
+    residue numbers (e.g., chains C and H both starting at resnr=1),
+    where key-based matching by (resnr, atomname) would produce collisions.
+
+    Returns list of atoms with combined information including chain_idx.
     """
     merged = []
 
-    # Create a mapping from (resnr, atomname) to topology info
-    topology_map = {}
-    for idx, topo_atom in topology_atoms.items():
-        key = (topo_atom['resnr'], topo_atom['atomname'])
-        topology_map[key] = topo_atom
+    # Sort topology atoms by their offset index for positional matching
+    sorted_topo = sorted(topology_atoms.values(), key=lambda a: a['index'])
+    n_topo = len(sorted_topo)
 
-    # Match GRO atoms with topology
-    for gro_atom in gro_atoms:
-        key = (gro_atom['resnr'], gro_atom['atomname'])
-
+    for i, gro_atom in enumerate(gro_atoms):
         atom = {**gro_atom}  # Start with GRO data
 
-        # Add topology information if available
-        if key in topology_map:
-            topo = topology_map[key]
+        if i < n_topo:
+            # Protein atom: match with topology by position
+            topo = sorted_topo[i]
             atom['type'] = topo['type']
             atom['typeB'] = topo['typeB']
             atom['charge'] = topo['charge']
             atom['chargeB'] = topo['chargeB']
             atom['mass'] = topo['mass']
             atom['massB'] = topo['massB']
+            atom['chain_idx'] = topo.get('chain_idx', 0)
         else:
-            # Atoms in GRO but not in topology (e.g., solvent)
+            # Solvent/ions: not in topology
             atom['type'] = 'UNK'
             atom['typeB'] = None
             atom['charge'] = 0.0
             atom['chargeB'] = None
             atom['mass'] = 0.0
             atom['massB'] = None
+            atom['chain_idx'] = -1
 
         merged.append(atom)
 
@@ -287,7 +292,7 @@ def write_pdb(atoms, filepath, title, chain_map=None, mutation_maps=None, lambda
     and only uses the mutation mapping for that specific residue.
     """
     if chain_map is None:
-        chain_map = build_chain_map(atoms)
+        chain_map = {}
 
     if mutation_maps is None:
         mutation_maps = {}
@@ -297,6 +302,13 @@ def write_pdb(atoms, filepath, title, chain_map=None, mutation_maps=None, lambda
 
     if resnr_to_mutation is None:
         resnr_to_mutation = {}
+
+    # Build chain_idx -> chain_letter mapping from atom data
+    # This handles overlapping resnr across chains correctly
+    chain_indices = sorted(set(
+        a.get('chain_idx', 0) for a in atoms if a.get('chain_idx', -1) >= 0
+    ))
+    idx_to_chain = {ci: chr(ord('A') + (i % 26)) for i, ci in enumerate(chain_indices)}
 
     # Create BioPython structure
     structure = Structure.Structure('model')
@@ -311,7 +323,15 @@ def write_pdb(atoms, filepath, title, chain_map=None, mutation_maps=None, lambda
         resnr = atom['resnr']
         resname = atom['resname']
         atom_name = atom['atomname']
-        chain_id = chain_map.get(resnr, 'A')
+
+        # Prefer chain_idx (handles overlapping resnr), fall back to chain_map
+        chain_idx = atom.get('chain_idx', -1)
+        if chain_idx >= 0 and chain_idx in idx_to_chain:
+            chain_id = idx_to_chain[chain_idx]
+        elif chain_map:
+            chain_id = chain_map.get(resnr, 'A')
+        else:
+            chain_id = 'A'
 
         # For lambda_1, rename atoms that have mappings in the mutation file
         renamed_atom_name = atom_name
