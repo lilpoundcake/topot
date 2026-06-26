@@ -178,6 +178,84 @@ The tool generates up to 7 files in the output directory:
   - `[ lambda_1_wo_water_and_ions ]` - Protein only at λ=1
 - Use with: GROMACS analysis tools (gmx energy, gmx trajectory, etc.)
 
+## Using Output Files
+
+The output files split a dual-topology system into two single-state structures. To analyze a real MD trajectory of one lambda state, you must filter the trajectory through the matching lambda index group — the original `md.xtc` contains atoms from both states (real + `DUM_` placeholders), so loading it against `md_lambda_0.gro` would fail with an atom-count mismatch.
+
+### Match the right output to the right index group
+
+| Index group (in `index.ndx`) | Structure file to load alongside the filtered trajectory |
+|---|---|
+| `lambda_0` | `md_lambda_0_WI.gro` (all atoms at λ=0) |
+| `lambda_0_wo_water_and_ions` | `md_lambda_0.gro` / `md_lambda_0.pdb` (protein only at λ=0) |
+| `lambda_1` | `md_lambda_1_WI.gro` (all atoms at λ=1) |
+| `lambda_1_wo_water_and_ions` | `md_lambda_1.gro` / `md_lambda_1.pdb` (protein only at λ=1) |
+
+### Filter the MD trajectory with `gmx trjconv`
+
+```bash
+gmx trjconv -f md.xtc -s md.tpr -n results/index.ndx \
+            -o md_lambda_0_protein.xtc << EOF
+lambda_0_wo_water_and_ions
+EOF
+
+# Repeat for lambda_1:
+gmx trjconv -f md.xtc -s md.tpr -n results/index.ndx \
+            -o md_lambda_1_protein.xtc << EOF
+lambda_1_wo_water_and_ions
+EOF
+```
+
+The atom count in the filtered XTC will match the protein-only `.gro` / `.pdb` for that lambda state.
+
+## Visualizing Trajectories
+
+Load the filtered trajectory alongside the matching structure file.
+
+### VMD
+
+```bash
+vmd md_lambda_0.gro md_lambda_0_protein.xtc
+```
+
+Or interactively:
+
+```
+mol new md_lambda_0.gro
+mol addfile md_lambda_0_protein.xtc waitfor all
+```
+
+Highlight the mutation site:
+
+```
+resname W2Y and resid 337
+```
+
+### PyMOL
+
+```bash
+pymol -d "load md_lambda_0.pdb, lambda0; load_traj md_lambda_0_protein.xtc, lambda0"
+```
+
+Compare both states side by side:
+
+```
+load md_lambda_1.pdb, lambda1
+align lambda1, lambda0
+```
+
+### ChimeraX
+
+```bash
+chimerax --cmd "open md_lambda_0.pdb; open md_lambda_0_protein.xtc structureModel #1"
+```
+
+ChimeraX uses MDAnalysis for XTC I/O — prefer the protein-only trajectory (`md_lambda_0_protein.xtc`) over the full system XTC for faster loading.
+
+### Common pitfall
+
+Loading the original `md.xtc` against `md_lambda_0.gro` fails with an atom-count mismatch: the original trajectory has both states' atoms, but the lambda-specific structure has only one state's atoms. Always run `gmx trjconv -n index.ndx` first to filter the trajectory through the matching lambda group.
+
 ## Input Requirements
 
 ### Topology File (.top)

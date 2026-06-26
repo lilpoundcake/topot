@@ -111,6 +111,16 @@ Generated in output directory:
 | `md_lambda_1.pdb` | Protein at λ=1 | Visualization in PyMOL/VMD |
 | `index.ndx` | Updated groups | GROMACS analysis tools |
 
+## Visualizing Trajectories
+
+The original MD trajectory contains atoms from both lambda states, so it cannot be loaded directly against a lambda-specific structure. Filter it first through one of the new index groups:
+
+```bash
+gmx trjconv -f md.xtc -s md.tpr -n results/index.ndx -o md_lambda_0_protein.xtc <<< lambda_0_wo_water_and_ions
+```
+
+Then load `md_lambda_0_protein.xtc` alongside `md_lambda_0.gro` (or `.pdb`) in VMD, PyMOL, or ChimeraX. See [USAGE.md](USAGE.md#visualizing-trajectories) for the full guide and per-tool commands.
+
 ## Output Directory Handling
 
 The tool **never automatically deletes files** in the output directory. When files already exist:
