@@ -55,6 +55,23 @@ topot/
 5. **Identify Mutations** - Compare atoms between states, count disappearing/appearing atoms
 6. **Filter & Output** - Generate lambda-specific GRO/PDB/NDX files
 
+### Input Validation (utils/validator.py)
+
+Step 1 of the pipeline runs strict validation that fails fast with three-line errors (what failed, the offending value, a concrete `Fix:` line) and exits with status 1. Checks are independent and run before any heavy parsing.
+
+The 8 checks:
+
+1. **GRO header well-formed** — Line 2 is a positive integer AND the atom-record count matches it (excluding the trailing box-vectors line).
+2. **`[ molecules ]` present** — The `.top` must contain a `[ molecules ]` section listing every molecule.
+3. **Atom source present** — The `.top` must have either `#include` directives or an inline `[ moleculetype ]` block.
+4. **Local `.itp` includes exist** — Every non-FF `#include` resolves to a real file next to the `.top`. FF includes (`*.ff/...`, `tip3p.itp`, `ions.itp`, `posre*.itp`, `../`-escaped paths) are skipped.
+5. **Atom-count consistency** — Sum of `[ molecules ]` count × `.itp` `[ atoms ]` count equals the GRO atom count. Emits a WARNING (not ERROR) when residues can't be resolved (e.g. exotic solvent names).
+6. **NDX has group headers** — If `-n` was passed, the file must contain at least one `[ name ]` header.
+7. **Force-field directory** — `--ff-dir` exists and contains either `*.ff/` subdirectories or is itself a `*.ff/` directory with `forcefield.itp`.
+8. **Dual topology present** — The parsed topology contains at least one atom with a `typeB` column (the PMX signature). Runs after Step 3 parse.
+
+All checks raise `ValidationError`; `cli.py` catches the exception and prints the formatted message before `sys.exit(1)`. Pre-parse checks (1–6) are bundled in `validate_inputs_pre_parse()` and called from Step 1; the FF directory check (7) runs at the head of Step 2; the dual-topology check (8) runs at the end of Step 3 so the error message lands next to the step that triggered it.
+
 ### Data Structures
 
 **Merged Atom Dictionary:**

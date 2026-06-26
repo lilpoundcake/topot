@@ -63,6 +63,14 @@ Examples:
 
     # Step 1: Validate input files
     print("Step 1: Validating input files...")
+    from .utils.validator import (
+        validate_inputs_pre_parse,
+        _validate_ff_dir,
+        _validate_dual_topology,
+        ValidationError,
+    )
+
+    # Cheapest existence checks first so the error message names the obvious cause.
     if not gro_file.exists():
         print(f"ERROR: GRO file not found: {gro_file}")
         sys.exit(1)
@@ -72,6 +80,13 @@ Examples:
     if ndx_file and not ndx_file.exists():
         print(f"ERROR: Index file not found: {ndx_file}")
         sys.exit(1)
+
+    try:
+        validate_inputs_pre_parse(gro_file, top_file, ndx_file)
+    except ValidationError as e:
+        print(str(e))
+        sys.exit(1)
+
     print(f"  ✓ GRO file: {gro_file}")
     print(f"  ✓ Topology file: {top_file}")
     if ndx_file:
@@ -82,6 +97,11 @@ Examples:
 
     # Step 2: Identify force field
     print("\nStep 2: Identifying force field...")
+    try:
+        _validate_ff_dir(ff_dir)
+    except ValidationError as e:
+        print(str(e))
+        sys.exit(1)
     from .utils.ff_detector import detect_force_field
     ff_info = detect_force_field(top_file, ff_dir)
     print(f"  Force field: {ff_info['name']}")
@@ -102,6 +122,11 @@ Examples:
     topology_atoms = parse_topology(top_file)
     print(f"  Total atoms in topology: {len(topology_atoms)}")
     print(f"  Dual topology atoms: {sum(1 for a in topology_atoms.values() if a.get('typeB'))}")
+    try:
+        _validate_dual_topology(topology_atoms)
+    except ValidationError as e:
+        print(str(e))
+        sys.exit(1)
 
     # Extract chain information
     chain_molecules = extract_chain_info(top_file)
